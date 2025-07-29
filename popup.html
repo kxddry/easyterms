@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 350px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .header h1 {
+      font-size: 18px;
+      margin: 0 0 5px 0;
+      color: #333;
+    }
+    
+    .header p {
+      font-size: 12px;
+      color: #666;
+      margin: 0;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: #333;
+      font-size: 14px;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    
+    .form-group input:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+    
+    .form-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+      background: white;
+    }
+    
+    .form-group select:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 10px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    
+    .btn:hover {
+      background: #0056b3;
+    }
+    
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .help-text {
+      font-size: 11px;
+      color: #666;
+      margin-top: 5px;
+      line-height: 1.4;
+    }
+    
+    .stats {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #666;
+    }
+    
+    .stats-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    
+    .stats-item:last-child {
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Terms Summarizer</h1>
+    <p>Automatically detect and summarize terms of use</p>
+  </div>
+  
+  <div id="status" class="status" style="display: none;"></div>
+  
+  <div class="form-group">
+    <label for="apiKey">OpenAI API Key:</label>
+    <input type="password" id="apiKey" placeholder="sk-...">
+    <div class="help-text">
+      Your API key is stored locally and only used to make requests to OpenAI.
+      <a href="https://platform.openai.com/api-keys" target="_blank">Get your API key</a>
+    </div>
+  </div>
+  
+  <div class="form-group">
+    <label for="modelSelect">Model:</label>
+    <select id="modelSelect">
+      <option value="gpt-4.1-nano">GPT-4.1 Nano (Ultra Fast & Affordable)</option>
+      <option value="gpt-4.1-mini">GPT-4.1 Mini (Fast & Cost-effective)</option>
+      <option value="gpt-4o-mini">GPT-4o Mini (Balanced Performance)</option>
+      <option value="gpt-4o">GPT-4o (High Quality)</option>
+      <option value="gpt-4.1">GPT-4.1 (Premium Quality)</option>
+    </select>
+    <div class="help-text">
+      Choose the model for summarization. GPT-4 models provide better quality but cost more.
+    </div>
+  </div>
+  
+  <button id="saveBtn" class="btn">Save Settings</button>
+  <button id="testBtn" class="btn" disabled>Test Connection</button>
+  
+  <div class="stats">
+    <div class="stats-item">
+      <span>Status:</span>
+      <span id="connectionStatus">Not configured</span>
+    </div>
+    <div class="stats-item">
+      <span>Model:</span>
+      <span id="selectedModel">GPT-4.1 Nano</span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

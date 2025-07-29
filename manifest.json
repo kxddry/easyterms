@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Terms Summarizer",
+  "version": "1.0",
+  "description": "Automatically detect and summarize terms of use on websites",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["https://api.openai.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Terms Summarizer Settings"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
