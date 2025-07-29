@@ -1,14 +1,12 @@
 // Content script to detect terms of use links and content
 ;(() => {
   let isProcessing = false
-  let termsModal = null
+  let termsPopup = null
+  let highlightedLinks = []
   const chrome = window.chrome // Declare the chrome variable
 
   // Terms-related keywords to search for
-  const termsKeywords = [
-    "terms",
-    "privacy policy",
-  ]
+  const termsKeywords = ["terms", "privacy policy"]
 
   // Function to convert basic markdown to HTML
   function parseMarkdown(text) {
@@ -101,82 +99,141 @@
       scripts.forEach((el) => el.remove())
 
       // Get main content
-      const out = doc.querySelector("article").innerText.trim() || doc.querySelector('main').innerText.trim() || doc.querySelector('.content').innerText.trim() || doc.body
-      if (out == '') {
-        throw("error fetching terms, empty output")
+      const content =
+        doc.querySelector("article")?.innerText.trim() ||
+        doc.querySelector("main")?.innerText.trim() ||
+        doc.querySelector(".content")?.innerText.trim() ||
+        doc.body?.innerText.trim() ||
+        ""
+
+      if (!content) {
+        throw new Error("Could not extract content from terms page")
       }
+
+      return content
     } catch (error) {
       console.error("Error extracting terms content:", error)
       return ""
     }
   }
 
-  // Function to create and show the terms modal
-  function showTermsModal(termsLinks) {
-    if (termsModal) return
-    console.log(termsLinks)
+  // Function to get optimal popup position
+  function getPopupPosition(referenceElement) {
+    const rect = referenceElement.getBoundingClientRect()
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+    const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft
 
-    termsModal = document.createElement("div")
-    termsModal.className = "terms-summarizer-modal"
-    termsModal.innerHTML = `
-      <div class="terms-summarizer-content">
-        <div class="terms-summarizer-header">
-          <h3>Terms of Use Detected</h3>
-          <button class="terms-summarizer-close">&times;</button>
-        </div>
-        <div class="terms-summarizer-body">
-          <p>We found ${termsLinks.length} terms-related document(s) on this page:</p>
-          <ul class="terms-links-list">
-            ${termsLinks
-              .map(
-                (link, index) => `
-              <li>
-                <label>
-                  <input type="checkbox" value="${index}" checked>
-                  <span>${link.text}</span>
-                </label>
-              </li>
-            `,
-              )
-              .join("")}
-          </ul>
-          <p>Would you like to summarize the selected terms?</p>
-        </div>
-        <div class="terms-summarizer-footer">
-          <button class="terms-summarizer-btn terms-summarizer-cancel">Cancel</button>
-          <button class="terms-summarizer-btn terms-summarizer-summarize">Summarize</button>
-        </div>
-        <div class="terms-summarizer-loading" style="display: none;">
-          <p>Analyzing terms... This may take a moment.</p>
-          <div class="terms-summarizer-spinner"></div>
-        </div>
-        <div class="terms-summarizer-result" style="display: none;">
-          <h4>Summary:</h4>
-          <div class="terms-summary-content"></div>
-        </div>
+    const popupWidth = 320
+    const popupHeight = 200 // Estimated initial height
+    const margin = 10
+
+    let top = rect.bottom + scrollTop + margin
+    let left = rect.left + scrollLeft
+
+    // Adjust if popup would go off-screen horizontally
+    if (left + popupWidth > window.innerWidth + scrollLeft) {
+      left = window.innerWidth + scrollLeft - popupWidth - margin
+    }
+
+    // Adjust if popup would go off-screen vertically
+    if (top + popupHeight > window.innerHeight + scrollTop) {
+      top = rect.top + scrollTop - popupHeight - margin
+    }
+
+    // Ensure minimum margins
+    left = Math.max(scrollLeft + margin, left)
+    top = Math.max(scrollTop + margin, top)
+
+    return { top, left }
+  }
+
+  // Function to highlight terms links
+  function highlightTermsLinks(termsLinks) {
+    highlightedLinks = termsLinks.map((link) => link.element)
+    highlightedLinks.forEach((element) => {
+      element.classList.add("terms-link-highlighted")
+    })
+  }
+
+  // Function to remove highlights
+  function removeHighlights() {
+    highlightedLinks.forEach((element) => {
+      element.classList.remove("terms-link-highlighted")
+    })
+    highlightedLinks = []
+  }
+
+  // Function to create and show the terms popup
+  function showTermsPopup(termsLinks) {
+    if (termsPopup) return
+
+    // Highlight the found links
+    highlightTermsLinks(termsLinks)
+
+    // Find the first terms link to position popup near it
+    const firstLink = termsLinks[0].element
+    const position = getPopupPosition(firstLink)
+
+    termsPopup = document.createElement("div")
+    termsPopup.className = "terms-summarizer-popup"
+    termsPopup.style.top = position.top + "px"
+    termsPopup.style.left = position.left + "px"
+
+    termsPopup.innerHTML = `
+      <div class="terms-summarizer-header">
+        <h3>Terms Found</h3>
+        <button class="terms-summarizer-close">&times;</button>
+      </div>
+      <div class="terms-summarizer-body">
+        <p>Found ${termsLinks.length} terms document${termsLinks.length > 1 ? "s" : ""}:</p>
+        <ul class="terms-links-list">
+          ${termsLinks
+            .map(
+              (link, index) => `
+            <li>
+              <label>
+                <input type="checkbox" value="${index}" checked>
+                <span>${link.text}</span>
+              </label>
+            </li>
+          `,
+            )
+            .join("")}
+        </ul>
+        <p style="font-size: 11px; color: #888;">Summarize selected terms?</p>
+      </div>
+      <div class="terms-summarizer-footer">
+        <button class="terms-summarizer-btn terms-summarizer-cancel">Dismiss</button>
+        <button class="terms-summarizer-btn terms-summarizer-summarize">Summarize</button>
+      </div>
+      <div class="terms-summarizer-loading" style="display: none;">
+        <p style="font-size: 12px; margin: 0 0 8px 0;">Analyzing terms...</p>
+        <div class="terms-summarizer-spinner"></div>
+      </div>
+      <div class="terms-summarizer-result" style="display: none;">
+        <h4>Summary:</h4>
+        <div class="terms-summary-content"></div>
       </div>
     `
 
-    document.body.appendChild(termsModal)
+    document.body.appendChild(termsPopup)
 
     // Event listeners
-    const closeBtn = termsModal.querySelector(".terms-summarizer-close")
-    const cancelBtn = termsModal.querySelector(".terms-summarizer-cancel")
-    const summarizeBtn = termsModal.querySelector(".terms-summarizer-summarize")
+    const closeBtn = termsPopup.querySelector(".terms-summarizer-close")
+    const cancelBtn = termsPopup.querySelector(".terms-summarizer-cancel")
+    const summarizeBtn = termsPopup.querySelector(".terms-summarizer-summarize")
 
-    closeBtn.addEventListener("click", closeModal)
-    cancelBtn.addEventListener("click", closeModal)
+    closeBtn.addEventListener("click", closePopup)
+    cancelBtn.addEventListener("click", closePopup)
     summarizeBtn.addEventListener("click", handleSummarize)
 
     // Close on outside click
-    termsModal.addEventListener("click", (e) => {
-      if (e.target === termsModal) closeModal()
-    })
+    document.addEventListener("click", handleOutsideClick)
 
     async function handleSummarize() {
       if (isProcessing) return
 
-      const checkboxes = termsModal.querySelectorAll('input[type="checkbox"]:checked')
+      const checkboxes = termsPopup.querySelectorAll('input[type="checkbox"]:checked')
       const selectedLinks = Array.from(checkboxes).map((cb) => termsLinks[Number.parseInt(cb.value)])
 
       if (selectedLinks.length === 0) {
@@ -210,7 +267,7 @@
       } catch (error) {
         console.error("Error summarizing terms:", error)
         alert("Error summarizing terms: " + error.message)
-        closeModal()
+        closePopup()
       } finally {
         isProcessing = false
         showLoading(false)
@@ -218,44 +275,61 @@
     }
 
     function showLoading(show) {
-      const loading = termsModal.querySelector(".terms-summarizer-loading")
-      const footer = termsModal.querySelector(".terms-summarizer-footer")
+      const loading = termsPopup.querySelector(".terms-summarizer-loading")
+      const footer = termsPopup.querySelector(".terms-summarizer-footer")
+      const body = termsPopup.querySelector(".terms-summarizer-body")
+
       loading.style.display = show ? "block" : "none"
       footer.style.display = show ? "none" : "flex"
+      body.style.display = show ? "none" : "block"
     }
 
     function showResult(summary) {
-      const body = termsModal.querySelector(".terms-summarizer-body")
-      const result = termsModal.querySelector(".terms-summarizer-result")
+      const body = termsPopup.querySelector(".terms-summarizer-body")
+      const result = termsPopup.querySelector(".terms-summarizer-result")
       const summaryContent = result.querySelector(".terms-summary-content")
+      const footer = termsPopup.querySelector(".terms-summarizer-footer")
 
       body.style.display = "none"
+      footer.style.display = "none"
       result.style.display = "block"
 
       // Parse markdown and set as HTML
       const parsedSummary = parseMarkdown(summary)
       summaryContent.innerHTML = parsedSummary
+
+      // Adjust popup size for result
+      termsPopup.style.maxWidth = "400px"
+      termsPopup.style.width = "400px"
     }
 
-    function closeModal() {
-      if (termsModal) {
-        termsModal.remove()
-        termsModal = null
+    function handleOutsideClick(event) {
+      if (termsPopup && !termsPopup.contains(event.target)) {
+        closePopup()
+      }
+    }
+
+    function closePopup() {
+      if (termsPopup) {
+        document.removeEventListener("click", handleOutsideClick)
+        termsPopup.remove()
+        termsPopup = null
         isProcessing = false
+        removeHighlights()
       }
     }
   }
 
-  // Function to check for terms and show modal
+  // Function to check for terms and show popup
   function checkForTerms() {
-    if (isProcessing || termsModal) return
+    if (isProcessing || termsPopup) return
 
     const termsLinks = findTermsLinks()
 
     if (termsLinks.length > 0) {
       // Small delay to ensure page is fully loaded
       setTimeout(() => {
-        showTermsModal(termsLinks)
+        showTermsPopup(termsLinks)
       }, 1000)
     }
   }
