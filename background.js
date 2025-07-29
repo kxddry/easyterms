@@ -1,6 +1,6 @@
 // Background script with deep logging
 const LOG_PREFIX = "[TERMS-BACKGROUND]"
-const DEBUG_MODE = true
+const DEBUG_MODE = false
 
 function deepLog(category, message, data = null) {
   if (!DEBUG_MODE) return

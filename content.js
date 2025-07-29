@@ -395,8 +395,8 @@
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop
     const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft
 
-    const popupWidth = 320
-    const popupHeight = 200
+    const popupWidth = 480
+    const popupHeight = 280
     const margin = 10
 
     let top = rect.bottom + scrollTop + margin
@@ -704,7 +704,7 @@
             )
             .join("")}
         </ul>
-        <p style="font-size: 11px; color: #888;">Summarize selected terms? (Ctrl+Enter to summarize, Escape to close)</p>
+        <p style="font-size: 11px; color: #888;">Select terms to summarize. Drag to move, resize from corners. (Ctrl+Enter to summarize, Escape to close)</p>
       </div>
       <div class="terms-summarizer-footer">
         <button class="terms-summarizer-btn terms-summarizer-cancel">Dismiss</button>
@@ -984,14 +984,13 @@
       safeSetInnerHTML(summaryContent, parsedSummary)
 
       // Adjust popup size for result
-      termsPopup.style.maxWidth = "400px"
-      termsPopup.style.width = "400px"
+      termsPopup.style.maxWidth = "600px"
+      termsPopup.style.width = "600px"
       saveWindowState()
 
       deepLog("UI", "Summary result displayed and window resized")
     }
 
-    
     deepLog("POPUP", "Popup creation completed successfully")
   }
 
