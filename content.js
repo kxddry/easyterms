@@ -6,17 +6,8 @@
 
   // Terms-related keywords to search for
   const termsKeywords = [
-    "terms of use",
-    "terms and conditions",
-    "terms of service",
-    "user agreement",
+    "terms",
     "privacy policy",
-    "privacy notice",
-    "data policy",
-    "cookie policy",
-    "legal terms",
-    "service agreement",
-    "user terms",
   ]
 
   // Function to convert basic markdown to HTML
@@ -110,8 +101,10 @@
       scripts.forEach((el) => el.remove())
 
       // Get main content
-      const main = doc.querySelector("main") || doc.querySelector(".content") || doc.body
-      return main ? main.textContent.trim() : ""
+      const out = doc.querySelector("article").innerText.trim() || doc.querySelector('main').innerText.trim() || doc.querySelector('.content').innerText.trim() || doc.body
+      if (out == '') {
+        throw("error fetching terms, empty output")
+      }
     } catch (error) {
       console.error("Error extracting terms content:", error)
       return ""
@@ -121,6 +114,7 @@
   // Function to create and show the terms modal
   function showTermsModal(termsLinks) {
     if (termsModal) return
+    console.log(termsLinks)
 
     termsModal = document.createElement("div")
     termsModal.className = "terms-summarizer-modal"
