@@ -42,10 +42,10 @@ The extension requires the following Chrome permissions:
 ### Method 2: Developer Mode Installation
 
 1. **Download the Extension**
-   \`\`\`bash
-   git clone https://github.com/yourusername/easyterms.git
+   ```bash
+   git clone https://github.com/kxddry/easyterms.git
    cd easyterms
-   \`\`\`
+   ```
 
 2. **Open Chrome Extensions Page**
    - Navigate to `chrome://extensions/`
@@ -135,7 +135,7 @@ The extension requires the following Chrome permissions:
 ## 🛠️ Development
 
 ### Project Structure
-\`\`\`
+```
 easyterms/
 ├── manifest.json          # Extension manifest
 ├── popup.html             # Settings popup UI
@@ -148,20 +148,20 @@ easyterms/
 │   ├── icon48.png
 │   └── icon128.png
 └── README.md            # This file
-\`\`\`
+```
 
 ### Building from Source
 
 1. **Clone Repository**
-   \`\`\`bash
-   git clone https://github.com/yourusername/easyterms.git
+   ```bash
+   git clone https://github.com/kxddry/easyterms.git
    cd easyterms
-   \`\`\`
+   ```
 
 2. **Install Dependencies** (if any)
-   \`\`\`bash
+   ```bash
    # No build process required - pure JavaScript
-   \`\`\`
+   ```
 
 3. **Load in Chrome**
    - Follow the Developer Mode installation steps above
@@ -223,8 +223,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🤝 Support
 
 ### Getting Help
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/yourusername/easyterms/issues)
-- **Discussions**: Join conversations on [GitHub Discussions](https://github.com/yourusername/easyterms/discussions)
+- **Issues**: Report bugs on [GitHub Issues](https://github.com/kxddry/easyterms/issues)
+- **Discussions**: Join conversations on [GitHub Discussions](https://github.com/kxddry/easyterms/discussions)
 - **Email**: Contact support at support@easyterms.com
 
 ### Feature Requests
@@ -261,6 +261,6 @@ We welcome feature requests! Please:
 
 ---
 
-**Made with ❤️ for a more transparent web**
+**Made with ❤️ for a more transparent web by [@kxddry](https://github.com/kxddry/)**
 
 *EasyTerms helps users understand what they're agreeing to, one terms document at a time.*
