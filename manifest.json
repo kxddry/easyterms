@@ -3,7 +3,7 @@
   "name": "Terms Summarizer",
   "version": "1.0",
   "description": "Automatically detect and summarize terms of use on websites",
-  "permissions": ["activeTab", "storage"],
+  "permissions": ["activeTab", "storage", "webRequest", "scripting"],
   "host_permissions": ["https://api.openai.com/*"],
   "content_scripts": [
     {
