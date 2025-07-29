@@ -3,10 +3,24 @@
   let isProcessing = false
   let termsPopup = null
   let highlightedLinks = []
+  let isDragging = false
+  const dragOffset = { x: 0, y: 0 }
   const chrome = window.chrome // Declare the chrome variable
 
   // Terms-related keywords to search for
   const termsKeywords = ["terms", "privacy policy"]
+
+  // Function to safely set innerHTML with TrustedHTML
+  function safeSetInnerHTML(element, htmlString) {
+    if (window.trustedTypes && window.trustedTypes.createPolicy) {
+      const policy = window.trustedTypes.createPolicy("terms-summarizer", {
+        createHTML: (string) => string,
+      })
+      element.innerHTML = policy.createHTML(htmlString)
+    } else {
+      element.innerHTML = htmlString
+    }
+  }
 
   // Function to convert basic markdown to HTML
   function parseMarkdown(text) {
@@ -163,6 +177,38 @@
     highlightedLinks = []
   }
 
+  // Function to handle drag functionality
+  function initializeDrag(popup, header) {
+    header.addEventListener("mousedown", startDrag)
+
+    function startDrag(e) {
+      isDragging = true
+      const rect = popup.getBoundingClientRect()
+      dragOffset.x = e.clientX - rect.left
+      dragOffset.y = e.clientY - rect.top
+
+      document.addEventListener("mousemove", drag)
+      document.addEventListener("mouseup", stopDrag)
+      e.preventDefault()
+    }
+
+    function drag(e) {
+      if (!isDragging) return
+
+      const newLeft = e.clientX - dragOffset.x
+      const newTop = e.clientY - dragOffset.y
+
+      popup.style.left = Math.max(0, Math.min(window.innerWidth - popup.offsetWidth, newLeft)) + "px"
+      popup.style.top = Math.max(0, Math.min(window.innerHeight - popup.offsetHeight, newTop)) + "px"
+    }
+
+    function stopDrag() {
+      isDragging = false
+      document.removeEventListener("mousemove", drag)
+      document.removeEventListener("mouseup", stopDrag)
+    }
+  }
+
   // Function to create and show the terms popup
   function showTermsPopup(termsLinks) {
     if (termsPopup) return
@@ -179,13 +225,17 @@
     termsPopup.style.top = position.top + "px"
     termsPopup.style.left = position.left + "px"
 
-    termsPopup.innerHTML = `
+    const popupHTML = `
       <div class="terms-summarizer-header">
         <h3>Terms Found</h3>
         <button class="terms-summarizer-close">&times;</button>
       </div>
       <div class="terms-summarizer-body">
         <p>Found ${termsLinks.length} terms document${termsLinks.length > 1 ? "s" : ""}:</p>
+        <div class="terms-selection-controls">
+          <button class="terms-selection-btn" id="select-all">All</button>
+          <button class="terms-selection-btn" id="select-none">None</button>
+        </div>
         <ul class="terms-links-list">
           ${termsLinks
             .map(
@@ -216,18 +266,36 @@
       </div>
     `
 
+    safeSetInnerHTML(termsPopup, popupHTML)
     document.body.appendChild(termsPopup)
+
+    // Initialize drag functionality
+    const header = termsPopup.querySelector(".terms-summarizer-header")
+    initializeDrag(termsPopup, header)
 
     // Event listeners
     const closeBtn = termsPopup.querySelector(".terms-summarizer-close")
     const cancelBtn = termsPopup.querySelector(".terms-summarizer-cancel")
     const summarizeBtn = termsPopup.querySelector(".terms-summarizer-summarize")
+    const selectAllBtn = termsPopup.querySelector("#select-all")
+    const selectNoneBtn = termsPopup.querySelector("#select-none")
 
     closeBtn.addEventListener("click", closePopup)
     cancelBtn.addEventListener("click", closePopup)
     summarizeBtn.addEventListener("click", handleSummarize)
 
-    // Close on outside click
+    // All/None button functionality
+    selectAllBtn.addEventListener("click", () => {
+      const checkboxes = termsPopup.querySelectorAll('input[type="checkbox"]')
+      checkboxes.forEach((cb) => (cb.checked = true))
+    })
+
+    selectNoneBtn.addEventListener("click", () => {
+      const checkboxes = termsPopup.querySelectorAll('input[type="checkbox"]')
+      checkboxes.forEach((cb) => (cb.checked = false))
+    })
+
+    // Close on outside click (but not when dragging)
     document.addEventListener("click", handleOutsideClick)
 
     async function handleSummarize() {
@@ -294,9 +362,9 @@
       footer.style.display = "none"
       result.style.display = "block"
 
-      // Parse markdown and set as HTML
+      // Parse markdown and set as HTML safely
       const parsedSummary = parseMarkdown(summary)
-      summaryContent.innerHTML = parsedSummary
+      safeSetInnerHTML(summaryContent, parsedSummary)
 
       // Adjust popup size for result
       termsPopup.style.maxWidth = "400px"
@@ -304,7 +372,7 @@
     }
 
     function handleOutsideClick(event) {
-      if (termsPopup && !termsPopup.contains(event.target)) {
+      if (termsPopup && !termsPopup.contains(event.target) && !isDragging) {
         closePopup()
       }
     }
