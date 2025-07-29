@@ -233,62 +233,157 @@
     return termsLinks
   }
 
-  // Function to extract text content from terms page
-  async function extractTermsContent(url) {
-    deepLog("EXTRACTION", "Starting content extraction", { url })
+  // Function to extract text content from HTML
+  function parseHtmlContent(html, url) {
+    deepLog("PARSING", "Starting HTML content parsing", {
+      htmlLength: html.length,
+      url,
+    })
 
     try {
-      deepLog("EXTRACTION", "Fetching URL")
-      const response = await fetch(url)
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      deepLog("EXTRACTION", "Fetch successful", {
-        status: response.status,
-        contentType: response.headers.get("content-type"),
-      })
-
-      const html = await response.text()
-      deepLog("EXTRACTION", "HTML received", { htmlLength: html.length })
-
       const parser = new DOMParser()
       const doc = parser.parseFromString(html, "text/html")
-      deepLog("EXTRACTION", "HTML parsed successfully")
+      deepLog("PARSING", "HTML parsed successfully")
+
+      // Check if the parsed document has any content
+      if (!doc.body) {
+        throw new Error("Invalid HTML document - no body element found")
+      }
 
       // Remove script and style elements
-      const scripts = doc.querySelectorAll("script, style, nav, header, footer")
-      deepLog("EXTRACTION", "Removing unwanted elements", { elementsToRemove: scripts.length })
+      const scripts = doc.querySelectorAll("script, style, nav, header, footer, .navigation, .nav, .menu")
+      deepLog("PARSING", "Removing unwanted elements", { elementsToRemove: scripts.length })
       scripts.forEach((el) => el.remove())
 
-      // Get main content
-      const selectors = ["article", "main", ".content", "body"]
+      // Get main content with multiple fallback selectors
+      const selectors = [
+        "article",
+        "main",
+        "[role='main']",
+        ".content",
+        ".main-content",
+        ".terms-content",
+        ".legal-content",
+        "#content",
+        "#main",
+        ".container .content",
+        "body",
+      ]
+
       let content = ""
+      let usedSelector = ""
 
       for (const selector of selectors) {
         const element = doc.querySelector(selector)
         if (element) {
-          content = element.innerText.trim()
-          deepLog("EXTRACTION", `Content found with selector "${selector}"`, {
-            contentLength: content.length,
-            preview: content.substring(0, 200) + "...",
-          })
-          break
+          const textContent = element.innerText || element.textContent || ""
+          if (textContent.trim().length > 100) {
+            // Ensure we have substantial content
+            content = textContent.trim()
+            usedSelector = selector
+            deepLog("PARSING", `Content found with selector "${selector}"`, {
+              contentLength: content.length,
+              preview: content.substring(0, 200) + "...",
+            })
+            break
+          }
         }
       }
 
-      if (!content) {
-        throw new Error("Could not extract content from terms page")
+      if (!content || content.length < 50) {
+        throw new Error(
+          "Could not extract meaningful content from the page. The page may be empty, require JavaScript, or be protected against scraping.",
+        )
       }
 
-      deepLog("EXTRACTION", "Content extraction completed successfully", {
+      // Clean up the content
+      content = content
+        .replace(/\s+/g, " ") // Normalize whitespace
+        .replace(/\n\s*\n/g, "\n\n") // Clean up line breaks
+        .trim()
+
+      deepLog("PARSING", "Content parsing completed successfully", {
         finalContentLength: content.length,
+        usedSelector,
+        contentPreview: content.substring(0, 300) + "...",
       })
+
       return content
     } catch (error) {
-      deepLog("ERROR", "Content extraction failed", { url, error: error.message })
-      return ""
+      deepLog("ERROR", "HTML parsing failed", {
+        url,
+        error: error.message,
+        errorType: error.name,
+        stack: error.stack,
+      })
+      throw error
+    }
+  }
+
+  // Function to extract text content from terms page via background script
+  async function extractTermsContent(url) {
+    deepLog("EXTRACTION", "Starting content extraction process", { url })
+
+    try {
+      // Step 1: Fetch HTML via background script (bypasses CORS)
+      deepLog("EXTRACTION", "Requesting HTML fetch from background script")
+      const fetchResponse = await chrome.runtime.sendMessage({
+        action: "fetchContent",
+        url: url,
+      })
+
+      deepLog("EXTRACTION", "Fetch response received from background script", {
+        success: fetchResponse.success,
+        hasError: !!fetchResponse.error,
+        hasHtml: !!fetchResponse.html,
+        htmlLength: fetchResponse.html?.length || 0,
+      })
+
+      if (!fetchResponse.success) {
+        // Return error object for handling in the UI
+        return {
+          error: true,
+          message: fetchResponse.error,
+          technicalError: fetchResponse.technicalError,
+          url: fetchResponse.url,
+        }
+      }
+
+      // Step 2: Parse HTML content in content script (has access to DOMParser)
+      deepLog("EXTRACTION", "Parsing HTML content in content script")
+      const content = parseHtmlContent(fetchResponse.html, url)
+
+      deepLog("EXTRACTION", "Content extraction completed successfully", {
+        contentLength: content.length,
+        contentPreview: content.substring(0, 200) + "...",
+      })
+
+      return content
+    } catch (error) {
+      deepLog("ERROR", "Content extraction failed", {
+        url,
+        error: error.message,
+        errorType: error.name,
+        stack: error.stack,
+      })
+
+      // Provide specific error messages based on error type
+      let userFriendlyMessage = ""
+
+      if (error.message.includes("Failed to communicate")) {
+        userFriendlyMessage = `Failed to communicate with extension background: ${error.message}`
+      } else if (error.message.includes("meaningful content")) {
+        userFriendlyMessage = `Could not extract readable content from ${new URL(url).hostname}. The page may require JavaScript or have an unusual format.`
+      } else {
+        userFriendlyMessage = `Error processing content from ${new URL(url).hostname}: ${error.message}`
+      }
+
+      return {
+        error: true,
+        message: userFriendlyMessage,
+        technicalError: error.message,
+        url: url,
+      }
     }
   }
 
@@ -507,6 +602,38 @@
     }
   }
 
+  // Function to show error message in popup
+  function showErrorMessage(message, technicalDetails = null) {
+    deepLog("ERROR_UI", "Showing error message to user", { message, technicalDetails })
+
+    const errorHTML = `
+      <div class="terms-error-message">
+        <h4 style="color: #dc3545; margin: 0 0 12px 0; font-size: 14px;">⚠️ Content Extraction Failed</h4>
+        <p style="margin: 0 0 12px 0; color: #666; font-size: 12px; line-height: 1.4;">${message}</p>
+        ${
+          technicalDetails
+            ? `
+          <details style="margin-top: 8px;">
+            <summary style="font-size: 11px; color: #888; cursor: pointer;">Technical Details</summary>
+            <p style="font-size: 10px; color: #888; margin: 4px 0 0 0; font-family: monospace; background: #f8f9fa; padding: 4px; border-radius: 3px;">${technicalDetails}</p>
+          </details>
+        `
+            : ""
+        }
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee;">
+          <p style="font-size: 11px; color: #888; margin: 0;"><strong>Suggestions:</strong></p>
+          <ul style="font-size: 11px; color: #888; margin: 4px 0 0 0; padding-left: 16px;">
+            <li>Try visiting the terms page directly and copy-paste the content</li>
+            <li>Some sites block automated access for security reasons</li>
+            <li>Check if the link is working by clicking it manually</li>
+          </ul>
+        </div>
+      </div>
+    `
+
+    return errorHTML
+  }
+
   // Function to create and show the terms popup
   function showTermsPopup(termsLinks) {
     deepLog("POPUP", "Creating terms popup", { linksCount: termsLinks.length })
@@ -667,7 +794,6 @@
     })
 
     // Close on outside click (but not when dragging)
-    document.addEventListener("click", handleOutsideClick)
     deepLog("POPUP", "Outside click listener added")
 
     // Handle double-click on header to maximize/restore
@@ -708,20 +834,80 @@
       try {
         // Extract content from selected links
         deepLog("SUMMARIZE", "Starting content extraction for selected links")
-        const termsContents = await Promise.all(
+        const extractionResults = await Promise.all(
           selectedLinks.map(async (link, index) => {
             deepLog("SUMMARIZE", `Extracting content from link ${index + 1}`, { url: link.url })
-            const content = await extractTermsContent(link.url)
-            const result = { title: link.text, content }
-            deepLog("SUMMARIZE", `Content extracted for link ${index + 1}`, {
-              title: result.title,
-              contentLength: result.content.length,
-            })
-            return result
+            const result = await extractTermsContent(link.url)
+
+            if (result && result.error) {
+              deepLog("SUMMARIZE", `Content extraction failed for link ${index + 1}`, result)
+              return {
+                title: link.text,
+                content: null,
+                error: result.message,
+                technicalError: result.technicalError,
+                url: link.url,
+              }
+            } else {
+              deepLog("SUMMARIZE", `Content extracted for link ${index + 1}`, {
+                title: link.text,
+                contentLength: result?.length || 0,
+              })
+              return {
+                title: link.text,
+                content: result,
+                error: null,
+                url: link.url,
+              }
+            }
           }),
         )
 
-        deepLog("SUMMARIZE", "All content extracted, sending to background script", {
+        // Separate successful extractions from errors
+        const successfulExtractions = extractionResults.filter((result) => !result.error && result.content)
+        const failedExtractions = extractionResults.filter((result) => result.error)
+
+        deepLog("SUMMARIZE", "Content extraction completed", {
+          totalAttempts: extractionResults.length,
+          successful: successfulExtractions.length,
+          failed: failedExtractions.length,
+          failedUrls: failedExtractions.map((f) => f.url),
+        })
+
+        // If all extractions failed, show error and don't proceed
+        if (successfulExtractions.length === 0) {
+          deepLog("ERROR", "All content extractions failed")
+
+          let errorMessage = "Failed to extract content from all selected terms documents:\n\n"
+          failedExtractions.forEach((failure, index) => {
+            errorMessage += `${index + 1}. ${failure.title}: ${failure.error}\n`
+          })
+          errorMessage += "\nPlease try different terms documents or visit the pages directly."
+
+          showResult(
+            showErrorMessage(
+              "All content extraction attempts failed. This usually happens when websites block automated access.",
+              errorMessage,
+            ),
+          )
+          return
+        }
+
+        // If some extractions failed, show partial success message
+        if (failedExtractions.length > 0) {
+          deepLog("SUMMARIZE", "Some extractions failed, proceeding with successful ones", {
+            successfulCount: successfulExtractions.length,
+            failedCount: failedExtractions.length,
+          })
+        }
+
+        // Prepare successful content for API
+        const termsContents = successfulExtractions.map((result) => ({
+          title: result.title,
+          content: result.content,
+        }))
+
+        deepLog("SUMMARIZE", "Sending successful extractions to background script", {
           contentsCount: termsContents.length,
           totalContentLength: termsContents.reduce((sum, tc) => sum + tc.content.length, 0),
         })
@@ -740,15 +926,26 @@
         })
 
         if (response.success) {
-          showResult(response.summary)
+          let summaryContent = response.summary
+
+          // Add note about failed extractions if any
+          if (failedExtractions.length > 0) {
+            const failedNote =
+              `\n\n---\n\n**Note:** ${failedExtractions.length} document${failedExtractions.length > 1 ? "s" : ""} could not be processed:\n` +
+              failedExtractions.map((f) => `• ${f.title}: ${f.error}`).join("\n") +
+              `\n\nThis summary is based on ${successfulExtractions.length} successfully extracted document${successfulExtractions.length > 1 ? "s" : ""}.`
+
+            summaryContent += failedNote
+          }
+
+          showResult(summaryContent)
           deepLog("SUMMARIZE", "Summary displayed successfully")
         } else {
           throw new Error(response.error || "Failed to summarize terms")
         }
       } catch (error) {
         deepLog("ERROR", "Summarization failed", error)
-        alert("Error summarizing terms: " + error.message)
-        closePopup()
+        showResult(showErrorMessage(`Error during summarization: ${error.message}`, error.stack))
       } finally {
         isProcessing = false
         showLoading(false)
@@ -794,13 +991,7 @@
       deepLog("UI", "Summary result displayed and window resized")
     }
 
-    function handleOutsideClick(event) {
-      if (termsPopup && !termsPopup.contains(event.target) && !isDragging) {
-        deepLog("POPUP", "Outside click detected, closing popup")
-        closePopup()
-      }
-    }
-
+    
     deepLog("POPUP", "Popup creation completed successfully")
   }
 
@@ -831,21 +1022,6 @@
     }
   }
 
-  // Initialize debug indicator
-  addDebugIndicator()
-
-  // Initialize when page loads
-  if (document.readyState === "loading") {
-    deepLog("INIT", "Document still loading, adding DOMContentLoaded listener")
-    document.addEventListener("DOMContentLoaded", () => {
-      deepLog("INIT", "DOMContentLoaded fired, checking for terms")
-      checkForTerms()
-    })
-  } else {
-    deepLog("INIT", "Document already loaded, checking for terms immediately")
-    checkForTerms()
-  }
-
   // Also check when navigating (for SPAs)
   let lastUrl = location.href
   new MutationObserver(() => {
@@ -867,7 +1043,6 @@
     deepLog("POPUP", "Closing popup")
 
     if (termsPopup) {
-      document.removeEventListener("click", handleOutsideClick)
       document.removeEventListener("keydown", handleKeyDown)
       termsPopup.remove()
       termsPopup = null
@@ -877,5 +1052,20 @@
       removeHighlights()
       deepLog("POPUP", "Popup closed and cleaned up")
     }
+  }
+
+  // Initialize debug indicator
+  addDebugIndicator()
+
+  // Initialize when page loads
+  if (document.readyState === "loading") {
+    deepLog("INIT", "Document still loading, adding DOMContentLoaded listener")
+    document.addEventListener("DOMContentLoaded", () => {
+      deepLog("INIT", "DOMContentLoaded fired, checking for terms")
+      checkForTerms()
+    })
+  } else {
+    deepLog("INIT", "Document already loaded, checking for terms immediately")
+    checkForTerms()
   }
 })()

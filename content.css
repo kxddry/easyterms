@@ -349,6 +349,46 @@
   padding: 0;
 }
 
+/* Error message styling */
+.terms-error-message {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+  padding: 12px;
+  margin: 8px 0;
+}
+
+.terms-error-message h4 {
+  margin: 0 0 8px 0;
+  color: #856404;
+}
+
+.terms-error-message p {
+  margin: 0 0 8px 0;
+  color: #856404;
+}
+
+.terms-error-message details {
+  margin-top: 8px;
+}
+
+.terms-error-message summary {
+  cursor: pointer;
+  color: #6c757d;
+  font-size: 11px;
+}
+
+.terms-error-message ul {
+  margin: 4px 0;
+  padding-left: 16px;
+}
+
+.terms-error-message li {
+  margin: 2px 0;
+  color: #6c757d;
+  font-size: 11px;
+}
+
 /* Highlight terms links when popup is shown */
 .terms-link-highlighted {
   background-color: #fff3cd !important;

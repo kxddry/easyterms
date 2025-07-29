@@ -20,8 +20,6 @@ function deepLog(category, message, data = null) {
 
 deepLog("INIT", "Background script starting")
 
-// const chrome = window.chrome // Declare the chrome variable
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   deepLog("MESSAGE", "Message received", {
     action: request.action,
@@ -33,8 +31,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     requestData: {
       hasTermsContents: !!request.termsContents,
       termsContentsCount: request.termsContents?.length || 0,
+      hasUrl: !!request.url,
     },
   })
+
+  if (request.action === "fetchContent") {
+    deepLog("FETCH", "Processing content fetch request", { url: request.url })
+
+    fetchTermsContent(request.url)
+      .then((result) => {
+        deepLog("FETCH", "Content fetch completed", {
+          success: result.success,
+          hasError: !!result.error,
+          hasHtml: !!result.html,
+          htmlLength: result.html?.length || 0,
+        })
+        sendResponse(result)
+      })
+      .catch((error) => {
+        deepLog("ERROR", "Content fetch failed in promise chain", error)
+        sendResponse({
+          success: false,
+          error: error.message,
+          technicalError: error.stack,
+          url: request.url,
+        })
+      })
+    return true // Keep message channel open for async response
+  }
 
   if (request.action === "summarizeTerms") {
     deepLog("SUMMARIZE", "Processing summarize request")
@@ -200,6 +224,83 @@ async function handleSummarizeTerms(termsContents) {
       name: error.name,
     })
     return { success: false, error: error.message }
+  }
+}
+
+async function fetchTermsContent(url) {
+  deepLog("FETCH", "Starting content fetch in background", { url })
+
+  try {
+    deepLog("FETCH", "Attempting to fetch URL from background script")
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Cache-Control": "no-cache",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+      },
+    })
+
+    if (!response.ok) {
+      const errorMessage = `HTTP ${response.status}: ${response.statusText}`
+      deepLog("ERROR", "Fetch failed with HTTP error", {
+        status: response.status,
+        statusText: response.statusText,
+        url,
+      })
+      throw new Error(errorMessage)
+    }
+
+    deepLog("FETCH", "Fetch successful", {
+      status: response.status,
+      contentType: response.headers.get("content-type"),
+      contentLength: response.headers.get("content-length"),
+    })
+
+    const html = await response.text()
+    deepLog("FETCH", "HTML received", { htmlLength: html.length })
+
+    if (!html || html.trim().length === 0) {
+      throw new Error("Received empty response from server")
+    }
+
+    deepLog("FETCH", "Content fetch completed successfully", {
+      htmlLength: html.length,
+      htmlPreview: html.substring(0, 200) + "...",
+    })
+
+    return { success: true, html }
+  } catch (error) {
+    deepLog("ERROR", "Content fetch failed in background", {
+      url,
+      error: error.message,
+      errorType: error.name,
+      stack: error.stack,
+    })
+
+    // Provide specific error messages based on error type
+    let userFriendlyMessage = ""
+
+    if (error.message.includes("403") || error.message.includes("Forbidden")) {
+      userFriendlyMessage = `Access denied to ${new URL(url).hostname}. The site is blocking automated access.`
+    } else if (error.message.includes("404") || error.message.includes("Not Found")) {
+      userFriendlyMessage = `The terms page was not found at ${url}. The link may be broken or outdated.`
+    } else if (error.message.includes("Failed to fetch") || error.message.includes("ERR_FAILED")) {
+      userFriendlyMessage = `Failed to load content from ${new URL(url).hostname}. The site may be down or blocking requests.`
+    } else if (error.message.includes("empty response")) {
+      userFriendlyMessage = `The terms page at ${new URL(url).hostname} returned empty content.`
+    } else {
+      userFriendlyMessage = `Error loading content from ${new URL(url).hostname}: ${error.message}`
+    }
+
+    return {
+      success: false,
+      error: userFriendlyMessage,
+      technicalError: error.message,
+      url: url,
+    }
   }
 }
 
