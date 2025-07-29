@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Terms Summarizer",
+  "name": "EasyTerms",
   "version": "1.0",
   "description": "Automatically detect and summarize terms of use on websites",
   "permissions": ["activeTab", "storage", "webRequest", "scripting"],

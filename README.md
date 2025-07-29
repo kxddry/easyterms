@@ -37,9 +37,28 @@ The extension requires the following Chrome permissions:
 ## 📦 Installation
 
 ### Method 1: Chrome Web Store (Recommended)
-*Coming Soon - Extension will be available on the Chrome Web Store*
 
-### Method 2: Developer Mode Installation
+Sorry, but I am not paying 5 dollars yet to register as a Chrome web store developer,
+so this method is not available yet.
+
+### Method 2: Developer Installation
+
+1. **Download the latest release from [here](https://github.com/kxddry/easyterms/releases)**
+
+2. **Open Chrome Extensions Page**
+   - Navigate to `chrome://extensions/`
+   - Or go to Chrome Menu → More Tools → Extensions
+
+3. **Enable Developer Mode**
+   - Toggle the "Developer mode" switch in the top-right corner
+
+4. **Load the Extension**
+	- Drag and drop the **.crx** file you've just downloaded
+	- Confirm the installation
+
+
+
+### Method 3: Unpacked Installation
 
 1. **Download the Extension**
    ```bash
@@ -59,9 +78,6 @@ The extension requires the following Chrome permissions:
    - Select the `easyterms` folder you downloaded
    - The extension should now appear in your extensions list
 
-5. **Pin the Extension** (Optional)
-   - Click the puzzle piece icon in Chrome's toolbar
-   - Find "EasyTerms" and click the pin icon to keep it visible
 
 ## ⚙️ Configuration
 
