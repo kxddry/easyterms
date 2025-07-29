@@ -211,7 +211,8 @@
       })
 
       for (const keyword of termsKeywords) {
-        if (linkText.includes(keyword) || href.includes(keyword.replace(/\s+/g, "-"))) {
+        // removed checking links as my github repo looks ugly
+        if (new RegExp(`\\b${keyword}\\b`, 'i').test(linkText) /* || href.includes(keyword.replace(/\s+/g, "-") */) {
           const termsLink = {
             element: link,
             text: link.textContent.trim(),

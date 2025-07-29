@@ -164,8 +164,8 @@
 }
 
 .terms-selection-btn:hover {
-  background: #f5f5f5;
-  border-color: #ccc;
+  background: #f0f0f0;
+  border-color: #bbb;
 }
 
 .terms-links-list {
@@ -188,15 +188,17 @@
   border-radius: 4px;
   transition: background-color 0.2s;
   font-size: 12px;
+  color: #333;
 }
 
 .terms-links-list label:hover {
-  background-color: #f5f5f5;
+  background-color: #f0f0f0;
 }
 
 .terms-links-list input[type="checkbox"] {
   margin-right: 8px;
-  transform: scale(0.9);
+  transform: scale(1.0);
+  accent-color: #007bff;
 }
 
 .terms-summarizer-footer {
